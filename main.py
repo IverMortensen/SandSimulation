@@ -7,10 +7,15 @@ import random
 # Initialize Pygame
 pygame.init()
 
+# Width and height of each sand particle
+SAND_SIZE = 4
+
+# How long the sand takes to reach equilibrium (settle down)
+SETTLING_RATE = 3
+
 # Set screen size
 SCREEN_WIDTH = 500
 SCREEN_HEIGHT = 600
-SAND_SIZE = 4
 
 # Adjust screen width and height align width sand size
 SCREEN_WIDTH = SCREEN_WIDTH - (SCREEN_WIDTH % SAND_SIZE)
@@ -25,6 +30,9 @@ pygame.display.set_caption("Sand Simulation")
 # Set up clock for managing frame rate
 clock = pygame.time.Clock()
 FPS = 120
+
+# Set up font for displaying FPS
+font = pygame.font.Font(None, 36)
 
 # Define colors (RGB)
 WHITE = (255, 255, 255)
@@ -72,7 +80,9 @@ def UpdateMatrix(matrix):
 
     for y, row in enumerate(matrix):
         for x, value in enumerate(row):
+
             if value == 1:
+
                 # Hitting bottom of screen?
                 if y+1 == ROWS:
                     newMatrix[y][x] = 1
@@ -80,18 +90,17 @@ def UpdateMatrix(matrix):
                 # Sand bellow?
                 elif matrix[y+1][x] == 1:
 
-                    # Sand on the left?
-                    if x-1 > 0 and matrix[y+1][x-1] == 0 and random.randint(0,1):
+                    # No sand on the left
+                    if x-1 > 0 and matrix[y+1][x-1] == 0 and not random.randint(0,3):
                         newMatrix[y+1][x-1] = 1
 
-                    # Sand on the right?
-                    elif x+1 < COLUMS and matrix[y+1][x+1] == 0:
+                    # No sand on the right
+                    elif x+1 < COLUMS and matrix[y+1][x+1] == 0 and not random.randint(0,3):
                         newMatrix[y+1][x+1] = 1
                     
                     # Stand still
                     else:
                         newMatrix[y][x] = 1
-
                 # Fall
                 else:
                     newMatrix[y+1][x] = 1
@@ -104,10 +113,47 @@ def MouseDraw(matrix):
     column = int(mousePosition[0] / SAND_SIZE)
 
     matrix[row][column] = 1
+
     matrix[row-1][column] = 1
+    matrix[row-2][column] = 1
+    matrix[row-3][column] = 1
+
     matrix[row+1][column] = 1
-    matrix[row][(column+1)%COLUMS] = 1
+    matrix[row+2][column] = 1
+    matrix[row+3][column] = 1
+
     matrix[row][column-1] = 1
+    matrix[row][column-2] = 1
+    matrix[row][column-3] = 1
+
+    matrix[row][(column+1)%COLUMS] = 1
+    matrix[row][(column+2)%COLUMS] = 1
+    matrix[row][(column+3)%COLUMS] = 1
+
+    matrix[row+1][(column+1)%COLUMS] = 1
+    matrix[row+1][(column+2)%COLUMS] = 1
+    matrix[row+2][(column+1)%COLUMS] = 1
+
+    matrix[row-1][(column+1)%COLUMS] = 1
+    matrix[row-1][(column+2)%COLUMS] = 1
+    matrix[row-2][(column+1)%COLUMS] = 1
+
+    matrix[row+1][column-1] = 1
+    matrix[row+1][column-2] = 1
+    matrix[row+2][column-1] = 1
+
+    matrix[row-1][column-1] = 1
+    matrix[row-1][column-2] = 1
+    matrix[row-2][column-1] = 1
+    
+
+def DrawFPS():
+    # Get the frame rate
+    fps = clock.get_fps()
+
+    # Render the FPS text
+    fps_text = font.render(f"FPS: {int(fps)}", True, (0, 0, 0))
+    screen.blit(fps_text, (10, 10))
 
 
 def main():
@@ -130,6 +176,7 @@ def main():
         # Drawing code goes here
         # DrawGrid(screen, COLUMS, ROWS)
         DrawMatrix(screen, matrix)
+        DrawFPS()
 
         # Update the display
         pygame.display.flip()
