@@ -13,6 +13,9 @@ SAND_SIZE = 4
 # How long the sand takes to reach equilibrium (settle down)
 SETTLING_RATE = 3
 
+# Size of the sand drawing tool
+DRAW_SIZE = 8
+
 # Set screen size
 SCREEN_WIDTH = 500
 SCREEN_HEIGHT = 600
@@ -41,7 +44,7 @@ NIGHT_MODE = (35, 35, 36)
 SAND_COLOR = (203, 189, 147)
 
 def GetRandomSandColor():
-    range = 10
+    range = 5
     red = random.randint(203-range, 203+range)
     green = random.randint(189-range, 189+range)
     blue = random.randint(147-range, 147+range)
@@ -69,82 +72,75 @@ def DrawSand(surface, colum, row, size, color=BLACK):
 def CreateMatrix(colums, rows):
     return np.zeros((rows, colums))
 
-def DrawMatrix(surface, matrix):
-    for y, row in enumerate(matrix):
+def CreateColorMatrix(columns, rows):
+    matrix = []
+    for row in range(rows):
+        matrix.append([])
+        for column in range(columns):
+            matrix[row].append(0)
+    return matrix
+
+def DrawMatrix(surface, sandMatrix, colorMatrix):
+    for y, row in enumerate(sandMatrix):
         for x, value in enumerate(row):
             if value == 1:
-                DrawSand(surface, x, y, SAND_SIZE, SAND_COLOR)
+                DrawSand(surface, x, y, SAND_SIZE, colorMatrix[y][x])
 
-def UpdateMatrix(matrix):
-    newMatrix = CreateMatrix(COLUMS, ROWS)
+def UpdateMatrix(sandMatrix, colorMatrix):
+    newSandMatrix = CreateMatrix(COLUMS, ROWS)
+    newColorMatrix = CreateColorMatrix(COLUMS, ROWS)
 
-    for y, row in enumerate(matrix):
+    for y, row in enumerate(sandMatrix):
         for x, value in enumerate(row):
 
             if value == 1:
+                sandColor = colorMatrix[y][x]
 
                 # Hitting bottom of screen?
                 if y+1 == ROWS:
-                    newMatrix[y][x] = 1
+                    newSandMatrix[y][x] = 1
+                    newColorMatrix[y][x] = sandColor
 
                 # Sand bellow?
-                elif matrix[y+1][x] == 1:
+                elif sandMatrix[y+1][x] == 1:
 
                     # No sand on the left
-                    if x-1 > 0 and matrix[y+1][x-1] == 0 and not random.randint(0,3):
-                        newMatrix[y+1][x-1] = 1
+                    if x-1 > -1 and sandMatrix[y+1][x-1] == 0 and not random.randint(0,3):
+                        newSandMatrix[y+1][x-1] = 1
+                        newColorMatrix[y+1][x-1] = sandColor
 
                     # No sand on the right
-                    elif x+1 < COLUMS and matrix[y+1][x+1] == 0 and not random.randint(0,3):
-                        newMatrix[y+1][x+1] = 1
-                    
+                    elif x+1 < COLUMS and sandMatrix[y+1][x+1] == 0 and not random.randint(0,3):
+                        newSandMatrix[y+1][x+1] = 1
+                        newColorMatrix[y+1][x+1] = sandColor
+
                     # Stand still
                     else:
-                        newMatrix[y][x] = 1
+                        newSandMatrix[y][x] = 1
+                        newColorMatrix[y][x] = sandColor
+
                 # Fall
                 else:
-                    newMatrix[y+1][x] = 1
+                    newSandMatrix[y+1][x] = 1
+                    newColorMatrix[y+1][x] = sandColor
 
-    return newMatrix
+    return newSandMatrix, newColorMatrix
 
-def MouseDraw(matrix):
+def CreateSandPartice(sandMatrix, colorMatrix, column, row, color=SAND_COLOR):
+    if column > -1 and column < COLUMS:
+        sandMatrix[row][column] = 1
+        colorMatrix[row][column] = color
+
+def MouseDraw(sandMatrix, colorMatrix, drawSize=5):
     mousePosition = pygame.mouse.get_pos()
-    row = int(mousePosition[1] / SAND_SIZE)
-    column = int(mousePosition[0] / SAND_SIZE)
+    mouseRow = int(mousePosition[1] / SAND_SIZE)
+    mouseColumn = int(mousePosition[0] / SAND_SIZE)
 
-    matrix[row][column] = 1
-
-    matrix[row-1][column] = 1
-    matrix[row-2][column] = 1
-    matrix[row-3][column] = 1
-
-    matrix[row+1][column] = 1
-    matrix[row+2][column] = 1
-    matrix[row+3][column] = 1
-
-    matrix[row][column-1] = 1
-    matrix[row][column-2] = 1
-    matrix[row][column-3] = 1
-
-    matrix[row][(column+1)%COLUMS] = 1
-    matrix[row][(column+2)%COLUMS] = 1
-    matrix[row][(column+3)%COLUMS] = 1
-
-    matrix[row+1][(column+1)%COLUMS] = 1
-    matrix[row+1][(column+2)%COLUMS] = 1
-    matrix[row+2][(column+1)%COLUMS] = 1
-
-    matrix[row-1][(column+1)%COLUMS] = 1
-    matrix[row-1][(column+2)%COLUMS] = 1
-    matrix[row-2][(column+1)%COLUMS] = 1
-
-    matrix[row+1][column-1] = 1
-    matrix[row+1][column-2] = 1
-    matrix[row+2][column-1] = 1
-
-    matrix[row-1][column-1] = 1
-    matrix[row-1][column-2] = 1
-    matrix[row-2][column-1] = 1
+    for column in range(drawSize):
+        for row in range(drawSize):
+            sandColumn = int(column + mouseColumn - (drawSize/2))
+            sandRow = int(row + mouseRow - (drawSize/2))
+            CreateSandPartice(sandMatrix, colorMatrix, sandColumn, sandRow, GetRandomSandColor())
     
 
 def DrawFPS():
@@ -157,7 +153,8 @@ def DrawFPS():
 
 
 def main():
-    matrix = CreateMatrix(COLUMS, ROWS)
+    sandMatrix = CreateMatrix(COLUMS, ROWS)
+    colorMatrix = CreateColorMatrix(COLUMS, ROWS)
 
     running = True
     while running:
@@ -165,17 +162,15 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
-        # LOGIC
         if pygame.mouse.get_pressed()[0]:
-            MouseDraw(matrix)
+            MouseDraw(sandMatrix, colorMatrix, 5)
 
-        matrix = UpdateMatrix(matrix)
-        # Fill the screen with white
+        sandMatrix, colorMatrix = UpdateMatrix(sandMatrix, colorMatrix)
+
         screen.fill(NIGHT_MODE)
 
-        # Drawing code goes here
         # DrawGrid(screen, COLUMS, ROWS)
-        DrawMatrix(screen, matrix)
+        DrawMatrix(screen, sandMatrix, colorMatrix)
         DrawFPS()
 
         # Update the display
