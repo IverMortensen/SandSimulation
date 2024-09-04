@@ -1,26 +1,25 @@
+import config
 import pygame
 import sys
 import numpy as np
-from time import sleep
 import random
+import matplotlib.pyplot as plt
 
 # Initialize Pygame
 pygame.init()
 
-# Width and height of each sand particle
-SAND_SIZE = 4
-
-# How long the sand takes to reach equilibrium (settle down)
-SETTLING_RATE = 3
-
-# Size of the sand drawing tool
-DRAW_SIZE = 8
+# General settings, can be changed in config.py
+SAND_SIZE = config.SAND_SIZE
+SETTLING_RATE = config.SETTLING_RATE
+DRAW_SIZE = config.DRAW_SIZE
+USE_COLORED_SAND = config.USE_COLORED_SAND
+SHOW_FPS = config.SHOW_FPS
 
 # Set screen size
 SCREEN_WIDTH = 500
 SCREEN_HEIGHT = 600
 
-# Adjust screen width and height align width sand size
+# Adjust screen width and height to align with sand size
 SCREEN_WIDTH = SCREEN_WIDTH - (SCREEN_WIDTH % SAND_SIZE)
 SCREEN_HEIGHT = SCREEN_HEIGHT - (SCREEN_HEIGHT % SAND_SIZE)
 
@@ -37,31 +36,26 @@ FPS = 120
 # Set up font for displaying FPS
 font = pygame.font.Font(None, 36)
 
-# Define colors (RGB)
-WHITE = (255, 255, 255)
+# Color settings
 BLACK = (0, 0, 0)
-NIGHT_MODE = (35, 35, 36)
+BACKGROUND = (35, 35, 36)
 SAND_COLOR = (203, 189, 147)
+currentRainbowColor = (0, 0, 255)
+numColors = 50000
+currentColor = 0
 
 def GetRandomSandColor():
     range = 5
-    red = random.randint(203-range, 203+range)
-    green = random.randint(189-range, 189+range)
-    blue = random.randint(147-range, 147+range)
+    red = random.randint(SAND_COLOR[0]-range, SAND_COLOR[0]+range)
+    green = random.randint(SAND_COLOR[1]-range, SAND_COLOR[1]+range)
+    blue = random.randint(SAND_COLOR[2]-range, SAND_COLOR[2]+range)
     return red, green, blue
 
-def DrawGrid(surface, colums, rows):
-    size = SCREEN_WIDTH / colums
-
-    for i in range(colums):
-        xPos = ((i * size), 0)
-        yPos = ((i * size), SCREEN_HEIGHT)
-        pygame.draw.line(surface, BLACK, xPos, yPos)
-
-    for i in range(rows):
-        xPos = (0, (i * size))
-        yPos = (SCREEN_WIDTH, (i * size))
-        pygame.draw.line(surface, BLACK, xPos, yPos)
+def getRainbowColors(num_colors):
+    cmap = plt.get_cmap("rainbow")  # Use the 'rainbow' colormap
+    return [cmap(i) for i in np.linspace(0, 1, num_colors)]
+if USE_COLORED_SAND:
+    rainbowColors = getRainbowColors(numColors)
 
 def DrawSand(surface, colum, row, size, color=BLACK):
     x = colum * size
@@ -90,10 +84,11 @@ def UpdateMatrix(sandMatrix, colorMatrix):
     newSandMatrix = CreateMatrix(COLUMS, ROWS)
     newColorMatrix = CreateColorMatrix(COLUMS, ROWS)
 
+    # Find each sand partice in the sand matrix
     for y, row in enumerate(sandMatrix):
         for x, value in enumerate(row):
-
             if value == 1:
+                # Get the color of the sand particle
                 sandColor = colorMatrix[y][x]
 
                 # Hitting bottom of screen?
@@ -126,10 +121,22 @@ def UpdateMatrix(sandMatrix, colorMatrix):
 
     return newSandMatrix, newColorMatrix
 
-def CreateSandPartice(sandMatrix, colorMatrix, column, row, color=SAND_COLOR):
+def CreateSandPartice(sandMatrix, colorMatrix, column, row):
+    global currentColor
     if column > -1 and column < COLUMS:
-        sandMatrix[row][column] = 1
-        colorMatrix[row][column] = color
+        if row > -1 and row < ROWS:
+            if sandMatrix[row][column]:
+                return
+            
+            if USE_COLORED_SAND:
+                color = rainbowColors[currentColor]
+                sandColor = (int(color[0] * 255), int(color[1] * 255), int(color[2] * 255))
+                currentColor = (currentColor + 1 ) % numColors
+            else:
+                sandColor = GetRandomSandColor()
+            
+            sandMatrix[row][column] = 1
+            colorMatrix[row][column] = sandColor
 
 def MouseDraw(sandMatrix, colorMatrix, drawSize=5):
     mousePosition = pygame.mouse.get_pos()
@@ -140,9 +147,9 @@ def MouseDraw(sandMatrix, colorMatrix, drawSize=5):
         for row in range(drawSize):
             sandColumn = int(column + mouseColumn - (drawSize/2))
             sandRow = int(row + mouseRow - (drawSize/2))
-            CreateSandPartice(sandMatrix, colorMatrix, sandColumn, sandRow, GetRandomSandColor())
-    
 
+            CreateSandPartice(sandMatrix, colorMatrix, sandColumn, sandRow)
+    
 def DrawFPS():
     # Get the frame rate
     fps = clock.get_fps()
@@ -150,7 +157,6 @@ def DrawFPS():
     # Render the FPS text
     fps_text = font.render(f"FPS: {int(fps)}", True, (0, 0, 0))
     screen.blit(fps_text, (10, 10))
-
 
 def main():
     sandMatrix = CreateMatrix(COLUMS, ROWS)
@@ -162,16 +168,22 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
+        # Draw new sand if the mouse is pressed
         if pygame.mouse.get_pressed()[0]:
-            MouseDraw(sandMatrix, colorMatrix, 5)
+            MouseDraw(sandMatrix, colorMatrix, DRAW_SIZE)
 
+        # Update the sand and color matrix for the next frame
         sandMatrix, colorMatrix = UpdateMatrix(sandMatrix, colorMatrix)
 
-        screen.fill(NIGHT_MODE)
+        # Clear the screen
+        screen.fill(BACKGROUND)
 
-        # DrawGrid(screen, COLUMS, ROWS)
+        # Draw the sand to the screen
         DrawMatrix(screen, sandMatrix, colorMatrix)
-        DrawFPS()
+
+        # Draw the framerate (if on)
+        if SHOW_FPS:
+            DrawFPS()
 
         # Update the display
         pygame.display.flip()
